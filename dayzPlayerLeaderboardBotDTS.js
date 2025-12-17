@@ -202,7 +202,7 @@ async function sendDailyLeaderboard(client) {
   const lines = [];
 
   lines.push(
-    "Descrição: ⏱️ tempo | 🏃 km | 🙍‍♂/🧟 kills | 🐺 animais | ☠️ mortes | ⌚ visto"
+    "Descrição: ⏱️ tempo | 🏃 km | 🙍‍♂/🧟 kills | 🐺 animais | ⌚ visto"
   );
   lines.push("");
 
@@ -217,7 +217,7 @@ async function sendDailyLeaderboard(client) {
       `${pad(`🏃${km(p.distTraveled)}km`, 9)} ` +
       `${pad(`🙍‍♂${p.playerKills.length}/🧟${p.zedKills}`, 14)} ` +
       `${pad(`🐺${p.animalsKilled.length}`, 6)} ` +
-      `${pad(`☠️${p.deaths.length}`, 6)} ` +
+      //`${pad(`☠️${p.deaths.length}`, 6)} ` +
       `⌚${fmtDate(p.lastSeen)}`;
 
     lines.push(line);
