@@ -4,5 +4,6 @@
   "ftpHost": "< FTP HOST NAME HERE >",
   "ftpPort": 21,
   "ftpUser": "< FTP USER NAME HERE >",
-  "ftpPass": "< FTP USER PASS HERE >"
+  "ftpPass": "< FTP USER PASS HERE >",
+   "LEADERBOARD_CHANNEL_ID":"< LEADERBOARD_CHANNEL_ID >"
 }
