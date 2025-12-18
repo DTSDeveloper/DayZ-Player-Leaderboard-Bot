@@ -2,6 +2,7 @@ const Discord = require("discord.js");
 const client = new Discord.Client();
 const cron = require("node-cron");
 
+const GHOST_FILE = "./ghostLeader.json";
 
 const basicFTP = require("basic-ftp");
 const { enterPassiveModeIPv4 } = basicFTP;
@@ -165,6 +166,21 @@ function parseDayZDate(str) {
   return new Date(y, m - 1, d, h, min, s);
 }
 
+function loadGhostLeader() {
+  if (!fs.existsSync(GHOST_FILE)) {
+    fs.writeFileSync(
+      GHOST_FILE,
+      JSON.stringify({ name: null, dist: 0, timeSurvived: 0, date: null }, null, 2)
+    );
+  }
+  return JSON.parse(fs.readFileSync(GHOST_FILE));
+}
+
+function saveGhostLeader(data) {
+  fs.writeFileSync(GHOST_FILE, JSON.stringify(data, null, 2));
+}
+
+
 // ================= COMMANDS =================
 
 // async function leaderboardCommand(msg) {
@@ -193,8 +209,26 @@ function parseDayZDate(str) {
 //     if (!isAdmin) position++;
 //   });
 // }
+
+function updateGhostLeader(players) {
+  const ghost = loadGhostLeader();
+
+  players.forEach(p => {
+    if (p.distTraveled > ghost.dist) {
+      ghost.name = p.name;
+      ghost.dist = p.distTraveled;
+      ghost.timeSurvived = p.timeSurvived;
+      ghost.date = new Date().toISOString();
+    }
+  });
+
+  saveGhostLeader(ghost);
+  return ghost;
+}
 async function sendDailyLeaderboard(client) {
   await loadFiles();
+
+  const ghost = updateGhostLeader(players);
 
   players.sort((a, b) => b.timeSurvived - a.timeSurvived);
   position = 1;
@@ -205,6 +239,19 @@ async function sendDailyLeaderboard(client) {
     "Descrição: ⏱️ tempo | 🏃 km | 🙍‍♂/🧟 kills | 🐺 animais | ⌚ visto"
   );
   lines.push("");
+
+  if (ghost.name) {
+    lines.push(
+      `[#]   GHOST LEADER`
+    );
+    lines.push(
+      `[0]   ${pad(ghost.name, 22)} ` +
+      `${pad(`🏃${km(ghost.dist)}km`, 12)} ` +
+      `${pad(`⏱️${fmtTime(ghost.timeSurvived)}`, 14)} ` +
+      `👻 recorde histórico`
+    );
+    lines.push("");
+  }
 
   players.forEach(p => {
     const isAdmin = ADMINS.includes(p.name.toLowerCase());
@@ -236,6 +283,7 @@ async function sendDailyLeaderboard(client) {
 
 async function leaderboardCommand(msg) {
   await loadFiles();
+  const ghost = updateGhostLeader(players);
 
   players.sort((a, b) => b.timeSurvived - a.timeSurvived);
   position = 1;
@@ -246,6 +294,20 @@ async function leaderboardCommand(msg) {
     "Descrição: ⏱️ tempo | 🏃 km | 🙍‍♂/🧟 kills | 🐺 animais | ☠️ mortes | ⌚ visto"
   );
   lines.push("");
+
+  if (ghost.name) {
+    lines.push(
+      `[#]   GHOST LEADER`
+    );
+    lines.push(
+      `[0]   ${pad(ghost.name, 22)} ` +
+      `${pad(`🏃${km(ghost.dist)}km`, 12)} ` +
+      `${pad(`⏱️${fmtTime(ghost.timeSurvived)}`, 14)} ` +
+      `👻 recorde histórico`
+    );
+    lines.push("");
+  }
+
 
   players.forEach(p => {
     const isAdmin = ADMINS.includes(p.name.toLowerCase());
