@@ -29,7 +29,7 @@ let position = 1;
 client.on("ready", () => {
   console.log("Connected as " + client.user.tag);
   cron.schedule(
-    "0 7 * * *",
+    "0 7 * * *",//"*/1 * * * *",//"0 7 * * *",
     () => {
       console.log("⏰ Enviando leaderboard diário...");
       sendDailyLeaderboard(client);
@@ -209,12 +209,22 @@ function saveGhostLeader(data) {
 //     if (!isAdmin) position++;
 //   });
 // }
+async function deleteLastBotMessage(channel) {
+  const messages = await channel.messages.fetch({ limit: 10 });
+  const lastBotMessage = messages.find(
+    m => m.author.id === channel.client.user.id
+  );
+
+  if (lastBotMessage) {
+    await lastBotMessage.delete().catch(() => {});
+  }
+}
 
 function updateGhostLeader(players) {
   const ghost = loadGhostLeader();
 
   players.forEach(p => {
-    if (p.distTraveled > ghost.dist) {
+    if (p.timeSurvived > ghost.timeSurvived) {
       ghost.name = p.name;
       ghost.dist = p.distTraveled;
       ghost.timeSurvived = p.timeSurvived;
@@ -246,8 +256,8 @@ async function sendDailyLeaderboard(client) {
     );
     lines.push(
       `[0]   ${pad(ghost.name, 22)} ` +
-      `${pad(`🏃${km(ghost.dist)}km`, 12)} ` +
       `${pad(`⏱️${fmtTime(ghost.timeSurvived)}`, 14)} ` +
+      `${pad(`🏃${km(ghost.dist)}km`, 12)} ` +
       `👻 recorde histórico`
     );
     lines.push("");
@@ -278,6 +288,8 @@ async function sendDailyLeaderboard(client) {
     return;
   }
 
+  await deleteLastBotMessage(channel);
+
   channel.send("```txt\n" + lines.join("\n") + "\n```");
 }
 
@@ -301,8 +313,8 @@ async function leaderboardCommand(msg) {
     );
     lines.push(
       `[0]   ${pad(ghost.name, 22)} ` +
-      `${pad(`🏃${km(ghost.dist)}km`, 12)} ` +
       `${pad(`⏱️${fmtTime(ghost.timeSurvived)}`, 14)} ` +
+      `${pad(`🏃${km(ghost.dist)}km`, 12)} ` +
       `👻 recorde histórico`
     );
     lines.push("");
