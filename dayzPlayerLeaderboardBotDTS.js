@@ -57,6 +57,9 @@ client.on("message", async (msg) => {
     case "player":
       await playerCommand(msg, args);
       break;
+    case "update":
+      await updateCommand(msg);
+      break;
     default:
       msg.channel.send("Comando inválido. Use `!help`");
   }
@@ -306,14 +309,44 @@ async function sendDailyLeaderboard(client) {
     return;
   }
 
-  await deleteLastBotMessage(channel);
+  //await deleteLastBotMessage(channel);
+  await deleteYesterdayBotMessages(channel);
 
   //channel.send("```txt\n" + lines.join("\n") + "\n```");
   await sendLongMessage(channel, lines.join("\n"));
 
 }
 
+async function updateCommand(msg) {
+  // restringir a admins
+  if (!ADMINS.includes(msg.author.username.toLowerCase())) {
+    msg.reply("❌ Você não tem permissão para usar este comando.");
+    return;
+  }
+
+  const channel = msg.client.channels.cache.get(LEADERBOARD_CHANNEL_ID);
+  if (!channel) {
+    msg.reply("Canal de leaderboard não encontrado.");
+    return;
+  }
+
+  msg.reply("🔄 Atualizando leaderboard...");
+
+  // apaga leaderboard de ontem
+  //await deleteYesterdayBotMessages(channel);
+
+  // gera novamente
+  await sendDailyLeaderboard(msg.client);
+
+  msg.reply("✅ Leaderboard atualizado com sucesso.");
+}
+
+
 async function leaderboardCommand(msg) {
+  if (!ADMINS.includes(msg.author.username.toLowerCase())) {
+    msg.reply("❌ Você não tem permissão para usar este comando.");
+    return;
+  }
   await loadFiles();
   const ghost = updateGhostLeader(players);
 
@@ -363,6 +396,50 @@ async function leaderboardCommand(msg) {
   //msg.channel.send("```txt\n" + lines.join("\n") + "\n```");
   await sendLongMessage(msg.channel, lines.join("\n"));
 
+}
+
+function isFromYesterday(date) {
+  const tz = "America/Sao_Paulo";
+
+  const msgDate = new Date(
+    date.toLocaleString("en-US", { timeZone: tz })
+  );
+
+  const now = new Date(
+    new Date().toLocaleString("en-US", { timeZone: tz })
+  );
+
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+
+  return (
+    msgDate.getFullYear() === yesterday.getFullYear() &&
+    msgDate.getMonth() === yesterday.getMonth() &&
+    msgDate.getDate() === yesterday.getDate()
+  );
+}
+
+async function deleteYesterdayBotMessages(channel) {
+  let lastId;
+
+  while (true) {
+    const options = { limit: 100 };
+    if (lastId) options.before = lastId;
+
+    const messages = await channel.messages.fetch(options);
+    if (messages.size === 0) break;
+
+    for (const msg of messages.values()) {
+      if (
+        msg.author.id === channel.client.user.id &&
+        isFromYesterday(msg.createdAt)
+      ) {
+        await msg.delete().catch(() => {});
+      }
+    }
+
+    lastId = messages.last().id;
+  }
 }
 
 
