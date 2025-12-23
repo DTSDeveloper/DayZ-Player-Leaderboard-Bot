@@ -72,24 +72,48 @@ function sendHelp(msg) {
 `📊 **Comandos disponíveis**
 
 !leaderboard  
-→ Ranking geral de sobrevivência
+→ Mostra o ranking geral de sobrevivência
 
 !player <nome>  
-→ Estatísticas detalhadas do jogador
+→ Estatísticas detalhadas de um jogador
 
-🔐 **Admins (${ADMINS.join(", ")}) veem:**
-• Localização da última morte
+!update 🔄  
+→ Atualiza o leaderboard **na hora**
+→ Remove apenas o leaderboard do **dia anterior**
+🔐 *Apenas administradores*
 
-👥 **Usuários comuns NÃO veem localização**
+━━━━━━━━━━━━━━━━━━━━
+📌 **Informações do ranking**
 
-Badges:
-👑 Top sobrevivente
-🧟 Slayer (zumbis)
-🐺 Caçador (animais)
+⏱️ Tempo total sobrevivido  
+🏃 Distância percorrida (km)  
+🙍‍♂/🧟 Kills (players / zumbis)  
+🐺 Animais mortos  
+☠️ Mortes  
+⌚ Visto por último  
+
+👻 **Ghost Leader**
+→ Maior tempo já registrado no servidor (recorde histórico)
+
+━━━━━━━━━━━━━━━━━━━━
+🏅 **Badges**
+
+👑 Top sobrevivente atual  
+🧟 Slayer (200+ zumbis)  
+🐺 Caçador (10+ animais)  
 🛡️ Imortal (0 mortes)
+
+━━━━━━━━━━━━━━━━━━━━
+🔐 **Admins (${ADMINS.join(", ")})**
+• Podem usar \`!update\`
+• Veem localização da última morte
+
+👥 **Usuários comuns**
+• Não veem localização da última morte
 `
   );
 }
+
 
 // ================= FTP =================
 
@@ -446,6 +470,11 @@ async function deleteYesterdayBotMessages(channel) {
 async function playerCommand(msg, args) {
   if (!args.length) {
     msg.channel.send("Use: `!player <nome>`");
+    return;
+  }
+
+  if (!ADMINS.includes(msg.author.username.toLowerCase())) {
+    msg.reply("❌ Você não tem permissão para usar este comando.");
     return;
   }
 
