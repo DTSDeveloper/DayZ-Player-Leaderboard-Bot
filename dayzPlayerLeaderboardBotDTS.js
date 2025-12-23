@@ -121,6 +121,24 @@ async function loadFiles() {
   fileInfos.forEach(loadPlayer);
 }
 
+async function sendLongMessage(channel, text) {
+  const MAX = 1900; // margem de segurança por causa dos ```
+  let buffer = "";
+
+  for (const line of text.split("\n")) {
+    if ((buffer + line + "\n").length > MAX) {
+      await channel.send("```txt\n" + buffer + "```");
+      buffer = "";
+    }
+    buffer += line + "\n";
+  }
+
+  if (buffer.length) {
+    await channel.send("```txt\n" + buffer + "```");
+  }
+}
+
+
 function loadPlayer(file) {
   const raw = fs.readFileSync("./playerJsons/" + file);
   const data = JSON.parse(raw);
@@ -290,7 +308,9 @@ async function sendDailyLeaderboard(client) {
 
   await deleteLastBotMessage(channel);
 
-  channel.send("```txt\n" + lines.join("\n") + "\n```");
+  //channel.send("```txt\n" + lines.join("\n") + "\n```");
+  await sendLongMessage(channel, lines.join("\n"));
+
 }
 
 async function leaderboardCommand(msg) {
@@ -340,7 +360,9 @@ async function leaderboardCommand(msg) {
     if (!isAdmin) position++;
   });
 
-  msg.channel.send("```txt\n" + lines.join("\n") + "\n```");
+  //msg.channel.send("```txt\n" + lines.join("\n") + "\n```");
+  await sendLongMessage(msg.channel, lines.join("\n"));
+
 }
 
 
