@@ -16,7 +16,7 @@ const ftp = new basicFTP.Client();
 
 // ================= CONFIG =================
 
-const ADMINS = ["fox", "hadoukendts"];
+const ADMINS = ["fox","maorifox", "hadoukendts"];
 
 const FTP_PATH = ["172.84.94.147_2382", "profiles", "Leaderboard"];
 
