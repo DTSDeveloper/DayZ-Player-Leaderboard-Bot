@@ -3,6 +3,7 @@ const client = new Discord.Client();
 const cron = require("node-cron");
 
 const GHOST_FILE = "./ghostLeader.json";
+const HISTORY_FILE = "./leaderboardHistory.json";
 
 const basicFTP = require("basic-ftp");
 const { enterPassiveModeIPv4 } = basicFTP;
@@ -40,6 +41,65 @@ client.on("ready", () => {
   );
 });
 
+function parseDateArg(arg) {
+  if (!arg) return todayKey();
+  const [d, m, y] = arg.split("/");
+  return `${y}-${m}-${d}`;
+}
+
+function getCurrentLifeTime(p) {
+  if (!p.deathsRaw.length) return p.timeSurvived;
+
+  const lastDeath = p.deathsRaw[p.deathsRaw.length - 1];
+  const deathDate = parseDayZDate(lastDeath.timeStamp);
+
+  if (!deathDate || !p.lastSeen) return 0;
+
+  return Math.max(
+    0,
+    Math.floor((p.lastSeen - deathDate) / 1000)
+  );
+}
+
+
+function historyCommand(msg, args) {
+  const history = loadHistory();
+  const key = parseDateArg(args[0]);
+
+  const day = history[key];
+    if (!day) {
+      msg.reply("❌ Nenhum histórico encontrado para essa data.");
+      return;
+    }
+
+    let text = `📅 **Histórico ${key}**\n\n`;
+
+    if (day.daily) {
+      text +=
+  `🕒 Diário:
+  • Ghost Leader: ${day.daily.ghostLeader}
+  • Top 1: ${day.daily.top1}
+  • Total jogadores: ${day.daily.totalPlayers}
+
+  `;
+    }
+
+    if (day.updates?.length) {
+      text += "⚡ Updates manuais:\n";
+      day.updates.forEach((u, i) => {
+        text +=
+  `#${i + 1} ${u.admin} às ${new Date(u.timestamp).toLocaleTimeString("pt-BR")}
+  • Top mudou: ${u.changes.topChanged ? "Sim" : "Não"}
+  • Jogadores alterados: ${u.changes.playersChanged}
+
+  `;
+      });
+    }
+
+    msg.channel.send(text);
+}
+
+
 client.on("message", async (msg) => {
   if (msg.author.bot) return;
   if (!msg.content.startsWith("!")) return;
@@ -59,6 +119,9 @@ client.on("message", async (msg) => {
       break;
     case "update":
       await updateCommand(msg);
+      break;
+    case "history":
+      historyCommand(msg, args);
       break;
     default:
       msg.channel.send("Comando inválido. Use `!help`");
@@ -165,6 +228,56 @@ async function sendLongMessage(channel, text) {
   }
 }
 
+async function deleteTodayAndYesterdayBotMessages(channel) {
+  let lastId;
+
+  while (true) {
+    const options = { limit: 100 };
+    if (lastId) options.before = lastId;
+
+    const messages = await channel.messages.fetch(options);
+    if (messages.size === 0) break;
+
+    for (const msg of messages.values()) {
+      if (
+        msg.author.id === channel.client.user.id &&
+        isFromTodayOrYesterday(msg.createdAt)
+      ) {
+        await msg.delete().catch(() => {});
+      }
+    }
+
+    lastId = messages.last().id;
+  }
+}
+
+
+function isFromTodayOrYesterday(date) {
+  if (!date) return false;
+
+  const tz = "America/Sao_Paulo";
+
+  const msgDate = new Date(
+    date.toLocaleString("en-US", { timeZone: tz })
+  );
+
+  const now = new Date(
+    new Date().toLocaleString("en-US", { timeZone: tz })
+  );
+
+  const today = new Date(now);
+  const yesterday = new Date(now);
+  yesterday.setDate(today.getDate() - 1);
+
+  const sameDay = (a, b) =>
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate();
+
+  return sameDay(msgDate, today) || sameDay(msgDate, yesterday);
+}
+
+
 
 function loadPlayer(file) {
   const raw = fs.readFileSync("./playerJsons/" + file);
@@ -179,6 +292,10 @@ function loadPlayer(file) {
     data.timeSurvived || 0,
     data.distTrav || 0
   );
+
+  if (!p.name || typeof p.timeSurvived !== "number" || p.timeSurvived < 0) {
+    return;
+  }
 
   if (data.lastTimeSeen) {
     p.lastSeen = parseDayZDate(data.lastTimeSeen);
@@ -339,6 +456,25 @@ async function sendDailyLeaderboard(client) {
   //channel.send("```txt\n" + lines.join("\n") + "\n```");
   await sendLongMessage(channel, lines.join("\n"));
 
+  const history = loadHistory();
+const key = todayKey();
+
+const snapshot = createSnapshot(players);
+
+history[key] = history[key] || { updates: [] };
+
+history[key].daily = {
+  timestamp: new Date().toISOString(),
+  totalPlayers: players.length,
+  ghostLeader: ghost.name,
+  top1: snapshot[0]?.name || "-"
+};
+
+history[key].snapshot = snapshot;
+
+saveHistory(history);
+
+
 }
 
 async function updateCommand(msg) {
@@ -358,11 +494,35 @@ async function updateCommand(msg) {
 
   // apaga leaderboard de ontem
   //await deleteYesterdayBotMessages(channel);
-
+  await deleteTodayAndYesterdayBotMessages(channel);
   // gera novamente
   await sendDailyLeaderboard(msg.client);
 
   msg.reply("✅ Leaderboard atualizado com sucesso.");
+
+  const history = loadHistory();
+  const key = todayKey();
+
+  const oldSnap = history[key]?.snapshot || [];
+  const newSnap = createSnapshot(players);
+  const diff = diffSnapshot(oldSnap, newSnap);
+
+  history[key] = history[key] || { updates: [] };
+
+  history[key].updates.push({
+    timestamp: new Date().toISOString(),
+    admin: msg.author.username,
+    changes: {
+      newGhost: false, // opcional comparar
+      topChanged: diff.topChanged,
+      playersChanged: diff.playersChanged
+    }
+  });
+
+  history[key].snapshot = newSnap;
+
+  saveHistory(history);
+
 }
 
 
@@ -510,6 +670,44 @@ ${getBadges(p)}
   msg.channel.send(text);
 }
 
+function loadHistory() {
+  if (!fs.existsSync(HISTORY_FILE)) {
+    fs.writeFileSync(HISTORY_FILE, JSON.stringify({}, null, 2));
+  }
+  return JSON.parse(fs.readFileSync(HISTORY_FILE));
+}
+
+function saveHistory(data) {
+  fs.writeFileSync(HISTORY_FILE, JSON.stringify(data, null, 2));
+}
+
+function todayKey() {
+  return new Date().toLocaleDateString("sv-SE", {
+    timeZone: "America/Sao_Paulo"
+  });
+}
+
+function createSnapshot(players) {
+  return players.map((p, i) => ({
+    rank: i + 1,
+    name: p.name,
+    time: p.timeSurvived,
+    dist: p.distTraveled
+  }));
+}
+
+function diffSnapshot(oldSnap = [], newSnap = []) {
+  let topChanged = false;
+  let playersChanged = Math.abs(newSnap.length - oldSnap.length);
+
+  if (oldSnap[0] && newSnap[0]) {
+    topChanged = oldSnap[0].name !== newSnap[0].name;
+  }
+
+  return { topChanged, playersChanged };
+}
+
+
 // ================= BADGES =================
 
 function getBadges(p) {
@@ -544,8 +742,12 @@ function km(m) {
 }
 
 function fmtDate(d) {
+  if (!d || !(d instanceof Date) || isNaN(d)) {
+    return "-";
+  }
   return d.toLocaleDateString("pt-BR");
 }
+
 
 // ================= LOGIN =================
 
