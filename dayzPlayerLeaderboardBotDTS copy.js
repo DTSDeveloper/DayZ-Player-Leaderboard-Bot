@@ -13,11 +13,6 @@ const settings = require("./settings.json");
 const LEADERBOARD_CHANNEL_ID = settings.LEADERBOARD_CHANNEL_ID;
 const Player = require("./Player.js");
 
-let loadingLock = false;
-let playersCache = [];
-let lastLoadTime = 0;
-const CACHE_TTL = 60000; // 1 minuto
-
 //const ftp = new basicFTP.Client(60000);
 
 // ================= CONFIG =================
